@@ -3,7 +3,7 @@ set -e
 export PYTHONPATH="..":$PYTHONPATH
 RUNDIR=`pwd`
 MODEL_IDs=(
-    "collab-external/cohere-model-testing-TODO-SWITCH"
+    "CohereLabs/cohere-transcribe-03-2026"
 )
 BATCH_SIZE=256
 DEVICE_ID=0
@@ -36,7 +36,7 @@ do
         --batch_size=${BATCH_SIZE} \
         --max_eval_samples=-1 \
         --basedir="$RESULTS_DIR"
-
+    exit 0
     python run_eval.py \
         --model_id=${MODEL_ID} \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \

@@ -8,7 +8,7 @@ RUNDIR=`pwd`
 
 # Configuration
 MODEL_IDs=(
-    "collab-external/cohere-model-testing-TODO-SWITCH"
+    "CohereLabs/cohere-transcribe-03-2026"
 )
 BATCH_SIZE=256
 DEVICE_ID=0
