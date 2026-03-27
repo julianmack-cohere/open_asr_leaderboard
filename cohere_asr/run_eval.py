@@ -1,8 +1,11 @@
 import argparse
 import os
 import re
+import math
 import torch
-from transformers import AutoProcessor, AutoModelForSpeechSeq2Seq, AutoConfig
+from transformers import AutoProcessor, AutoConfig
+from transformers import AutoProcessor, CohereAsrForConditionalGeneration
+
 import evaluate
 from normalizer import data_utils
 import time
@@ -24,14 +27,33 @@ def remove_brackets(text):
     text = re.sub(r'\s+', ' ', text)
     return text
 
+def run_cohere_transcribe(processor, model, audios, batch_size,sample_rate, language, max_new_tokens):
+    # following canary-1b and canary-1b-flash, we set punctuation=False for English and for other languages, we set punctuation=True 
+    punctuation = language != "en"
+
+    # batch audios
+    batch_predictions = []
+    n_batches = math.ceil(len(audios) / batch_size)
+    for i in tqdm(range(0, len(audios), batch_size), desc="Transcribing audios...", total=n_batches):
+        audio_batch = audios[i:i+batch_size]
+        inputs = processor(
+            audio_batch, sampling_rate=sample_rate, return_tensors="pt", language=language, punctuation=punctuation,
+        )
+        inputs.to(model.device, dtype=model.dtype)
+        audio_chunk_index = inputs.get("audio_chunk_index")
+        outputs = model.generate(**inputs, max_new_tokens=max_new_tokens)
+        text = processor.decode(outputs, skip_special_tokens=True, audio_chunk_index=audio_chunk_index, language=language)
+        batch_predictions.extend(text)
+    return batch_predictions
+
+
 @torch.inference_mode()
 def main(args):
     args.model_id = os.path.normpath(args.model_id)
 
-    trust_remote_code = True
     device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
-    model = load_model(args.model_id, device, trust_remote_code=trust_remote_code)
-    processor = AutoProcessor.from_pretrained(args.model_id, trust_remote_code=trust_remote_code)
+    model = load_model(args.model_id, device)
+    processor = AutoProcessor.from_pretrained(args.model_id, revision="refs/pr/11")
 
     def build_records(dataset_iter, desc):
         records = []
@@ -53,18 +75,19 @@ def main(args):
 
         audios = [record["audio_array"] for record in records]
         sample_rates = [record["sampling_rate"] for record in records]
-
+        assert all(sampling_rate == 16000 for sampling_rate in sample_rates)
+        
         start_time = time.time()
-        # following canary-1b and canary-1b-flash, we set punctuation=False for English and for other languages, we set punctuation=True 
-        batch_predictions = model.transcribe(
+        batch_predictions = run_cohere_transcribe(
             processor=processor,
-            audio_arrays=audios,
-            sample_rates=sample_rates,
-            language=args.language,
-            punctuation=args.language != "en",
+            model=model,
+            audios=audios,
             batch_size=args.batch_size,
-            compile=not args.no_torch_compile,
+            sample_rate=sample_rates[0],
+            language=args.language,
+            max_new_tokens=args.max_new_tokens,
         )
+    
         runtime = time.time() - start_time
         per_sample_runtime = runtime / len(records)
 
@@ -135,17 +158,13 @@ def main(args):
     rtfx = round(sum(audio_lengths) / sum(transcription_times), 2)
     print("WER:", wer, "%", "RTFx:", rtfx)
 
-def load_model(model_id, device, trust_remote_code=True):
-    config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+def load_model(model_id, device):
     print(f"Loading model: {model_id}")
-    model = AutoModelForSpeechSeq2Seq.from_pretrained(
-        model_id,
-        config=config,
-        trust_remote_code=trust_remote_code,
-        dtype=torch.bfloat16,
+    model = CohereAsrForConditionalGeneration.from_pretrained(
+        model_id, dtype=torch.bfloat16, device_map=device,
+        # TODO(remove this after merging transformer native changes to the HF model)
+        revision="refs/pr/11"
     )
-
-    model.to(device)
     model.eval()
 
     return model
