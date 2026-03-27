@@ -38,6 +38,7 @@ def run_cohere_transcribe(processor, model, audios, batch_size,sample_rate, lang
         audio_batch = audios[i:i+batch_size]
         inputs = processor(
             audio_batch, sampling_rate=sample_rate, return_tensors="pt", language=language, punctuation=punctuation,
+            revision="refs/pr/11"
         )
         inputs.to(model.device, dtype=model.dtype)
         audio_chunk_index = inputs.get("audio_chunk_index")
