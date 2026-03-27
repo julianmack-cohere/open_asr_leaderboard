@@ -5,7 +5,9 @@ RUNDIR=`pwd`
 MODEL_IDs=(
     "CohereLabs/cohere-transcribe-03-2026"
 )
-BATCH_SIZE=256
+BATCH_SIZE=64  # must be lower due to this issue: https://github.com/pytorch/pytorch/issues/80020
+# We need something like _conv_split_by_batch here to fix this:
+# https://huggingface.co/CohereLabs/cohere-transcribe-03-2026/blob/main/modeling_cohere_asr.py#L138
 DEVICE_ID=0
 
 num_models=${#MODEL_IDs[@]}
@@ -30,11 +32,11 @@ do
     python run_eval.py \
         --model_id=${MODEL_ID} \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="voxpopuli" \
+        --dataset="voxpopuli" \  # EDIT: the dataset here ami|voxpopuli 
         --split="test" \
         --device=${DEVICE_ID} \
         --batch_size=${BATCH_SIZE} \
-        --max_eval_samples=-1 \
+        --max_eval_samples=1024 \
         --basedir="$RESULTS_DIR"
     exit 0
     python run_eval.py \

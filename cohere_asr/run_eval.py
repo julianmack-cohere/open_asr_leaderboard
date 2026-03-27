@@ -42,7 +42,7 @@ def run_cohere_transcribe(processor, model, audios, batch_size,sample_rate, lang
         inputs.to(model.device, dtype=model.dtype)
         audio_chunk_index = inputs.get("audio_chunk_index")
         outputs = model.generate(**inputs, max_new_tokens=max_new_tokens)
-        text = processor.decode(outputs, skip_special_tokens=True,  audio_chunk_index=audio_chunk_index, language=language)
+        text = processor.decode(outputs, skip_special_tokens=True, audio_chunk_index=audio_chunk_index, language=language)
         batch_predictions.extend(text)
     return batch_predictions
 
@@ -160,7 +160,11 @@ def main(args):
 
 def load_model(model_id, device):
     print(f"Loading model: {model_id}")
-    model = CohereAsrForConditionalGeneration.from_pretrained(model_id, dtype=torch.bfloat16, device_map=device)
+    model = CohereAsrForConditionalGeneration.from_pretrained(
+        model_id, dtype=torch.bfloat16, device_map=device,
+        # TODO(remove this after merging transformer native changes to the HF model)
+        revision="refs/pr/11"
+    )
     model.eval()
 
     return model
