@@ -38,7 +38,6 @@ def run_cohere_transcribe(processor, model, audios, batch_size,sample_rate, lang
         audio_batch = audios[i:i+batch_size]
         inputs = processor(
             audio_batch, sampling_rate=sample_rate, return_tensors="pt", language=language, punctuation=punctuation,
-            revision="refs/pr/11"
         )
         inputs.to(model.device, dtype=model.dtype)
         audio_chunk_index = inputs.get("audio_chunk_index")
@@ -54,7 +53,7 @@ def main(args):
 
     device = f"cuda:{args.device}" if args.device >= 0 else "cpu"
     model = load_model(args.model_id, device)
-    processor = AutoProcessor.from_pretrained(args.model_id)
+    processor = AutoProcessor.from_pretrained(args.model_id, revision="refs/pr/11")
 
     def build_records(dataset_iter, desc):
         records = []
