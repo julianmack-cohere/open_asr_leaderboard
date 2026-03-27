@@ -28,11 +28,12 @@ do
         short_model_id="${MODEL_ID#*/}"
     fi
     RESULTS_DIR="${RUNDIR}/benchmarks/results-${short_model_id}/en"
-
+    
+    # EDIT: the dataset to ami|voxpopuli 
     python run_eval.py \
         --model_id=${MODEL_ID} \
         --dataset_path="hf-audio/esb-datasets-test-only-sorted" \
-        --dataset="voxpopuli" \  # EDIT: the dataset here ami|voxpopuli 
+        --dataset="voxpopuli" \
         --split="test" \
         --device=${DEVICE_ID} \
         --batch_size=${BATCH_SIZE} \
